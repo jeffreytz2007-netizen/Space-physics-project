@@ -1,6 +1,6 @@
-import numpy as np
-import matplotlib.pyplot as plt
-
+import os
+os.environ["SPEDAS_DATA_DIR"] = r"C:\spedas_data"
+#%%
 # Load and plot THEMIS FGM data
 def pyspedas_demo():
     # Import pyspedas routines to be used
@@ -60,7 +60,7 @@ if __name__ == '__main__':
 "2003 halloween storms example"
 import pyspedas
 from pyspedas import tplot
-trange = ['2003-10-26', '2003-11-07']
+trange = ['2023-10-26', '2023-11-07']
 noaa_vars = pyspedas.projects.noaa.noaa_load_kp(trange = trange)
 print(noaa_vars)
 tplot(["Kp", "ap"])
