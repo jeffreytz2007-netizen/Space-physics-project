@@ -1,19 +1,14 @@
 import os
-
 os.environ["SPEDAS_DATA_DIR"] = r"C:\spedas_data"
 os.makedirs(r"C:\spedas_data", exist_ok=True)
 
-print("SPEDAS_DATA_DIR =", os.environ.get("SPEDAS_DATA_DIR"))
-
 import pyspedas
 
-# Example OMNI load
+print("SPEDAS_DATA_DIR =", os.environ.get("SPEDAS_DATA_DIR"))
+
 omni_vars = pyspedas.omni.data(
     trange=["2015-03-17", "2015-03-18"],
     datatype="1min"
 )
 
 print(omni_vars)
-
-
-# %%
