@@ -1,0 +1,23 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Load and plot THEMIS FGM data
+def pyspedas_demo():
+    # Import pyspedas routines to be used
+    from pyspedas import tplot
+    from pyspedas.projects.themis import fgm
+
+    # Set the time range: 2007-03-23, complete day
+    trange=['2007-03-23' , '2007-03-24']
+    # Load THEMIS FGM data for probe A
+    fgm_vars = fgm(probe='a',trange=trange)
+    # Print the list of tplot variables just loaded
+    print(fgm_vars)
+    # Plot the 'tha_fgl_dsl' variable
+    tplot('tha_fgl_dsl')
+
+# Run the example code
+if __name__ == '__main__':
+    pyspedas_demo()
+
+#%%
