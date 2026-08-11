@@ -39,7 +39,7 @@ def ex_analysis(plot=True):
 
     # Download THEMIS state data for 2015-12-31
     time_range = ['2015-12-31 00:00:00', '2015-12-31 23:59:59']
-    state(probe='a', trange=time_range)
+    state(probe='a', trange=time_range) #Some data like THEMIS provide data from multiple stations/probes
 
     # Use some analysis functions on tplot variables
     subtract_average('tha_pos')
@@ -56,4 +56,15 @@ def ex_analysis(plot=True):
 # Run the example code
 if __name__ == '__main__':
     ex_analysis()
+# %%
+"2003 halloween storms example"
+import pyspedas
+from pyspedas import tplot
+trange = ['2003-10-26', '2003-11-07']
+noaa_vars = pyspedas.projects.noaa.noaa_load_kp(trange = trange)
+print(noaa_vars)
+tplot(["Kp", "ap"])
+#def example_analysis(plot = True):
+
+
 # %%
