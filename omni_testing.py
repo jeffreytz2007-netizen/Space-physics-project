@@ -1,22 +1,40 @@
-import bokeh
 import pyspedas
-import pytplot
+from pytplot import get_data
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime
 
-print("pyspedas:", pyspedas.__version__)
-print("pytplot:", pytplot.__version__)
-print("bokeh:", bokeh.__version__)
+# Load OMNI data
+omni_vars = pyspedas.projects.omni.data(trange=['2013-11-05', '2013-11-06'])
 
+print("Loaded variables:")
+print(omni_vars)
 
-#%%
-#import pyspedas
-#from pytplot import tplot, tplot_names
+# Helper function to convert pytplot variable to Python arrays
+def extract_var(name):
+    data = get_data(name)
+    if data is None:
+        print(f"Variable {name} not found")
+        return None, None
+    times = [datetime.utcfromtimestamp(t) for t in data.times]
+    values = data.y
+    return times, values
 
-#omni_vars = pyspedas.projects.omni.data(trange=['2013-11-5', '2013-11-6'])
+# Variables to plot
+vars_to_plot = ['BZ_GSM', 'flow_speed', 'SYM_H']
 
-#print("Loaded variables:")
-#print(omni_vars)
+fig, axes = plt.subplots(len(vars_to_plot), 1, figsize=(10, 8), sharex=True)
 
-#print("All tplot names:")
-#print(tplot_names())
+for ax, var in zip(axes, vars_to_plot):
+    times, values = extract_var(var)
+    if times is not None:
+        ax.plot(times, values, label=var)
+        ax.set_ylabel(var)
+        ax.legend(loc='upper right')
+        ax.grid(True)
 
-#tplot(omni_vars)
+axes[-1].set_xlabel('Time (UTC)')
+axes[-1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%Y-%m-%d'))
+
+plt.tight_layout()
+plt.show()
