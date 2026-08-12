@@ -9,6 +9,6 @@
 
 import pyspedas
 from pyspedas import tplot
-omni_vars = pyspedas.projects.omni.data(trange=['2013-11-5', '2013-11-6'])
-print(omni_vars)
+#omni_vars = pyspedas.projects.omni.data(trange=['2013-11-5', '2013-11-6'])
+#print(omni_vars)
 tplot(['BX_GSE', 'BY_GSE', 'BZ_GSE', 'flow_speed', 'Vx', 'Vy', 'Vz', 'SYM_H'])
