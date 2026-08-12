@@ -8,7 +8,7 @@
 #print("Contents before load =", os.listdir(os.environ["SPEDAS_DATA_DIR"]))
 
 import pyspedas
-#from pyspedas import tplot
+from pyspedas import tplot
 omni_vars = pyspedas.projects.omni.data(trange=['2013-11-5', '2013-11-6'])
 print(omni_vars)
-#tplot(['BX_GSE', 'BY_GSE', 'BZ_GSE', 'flow_speed', 'Vx', 'Vy', 'Vz', 'SYM_H'])
+tplot(['BX_GSE', 'BY_GSE', 'BZ_GSE', 'flow_speed', 'Vx', 'Vy', 'Vz', 'SYM_H'])
