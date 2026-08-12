@@ -1,5 +1,12 @@
 import bokeh
-print(bokeh.__version__)
+import pyspedas
+import pytplot
+
+print("pyspedas:", pyspedas.__version__)
+print("pytplot:", pytplot.__version__)
+print("bokeh:", bokeh.__version__)
+
+
 #%%
 #import pyspedas
 #from pytplot import tplot, tplot_names
