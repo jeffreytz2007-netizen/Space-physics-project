@@ -1,23 +1,25 @@
 """
-OMNI 1-minute geomagnetic event analysis using CDAWeb (cdasws), pandas, and matplotlib.
+Robust OMNI 1-minute geomagnetic event analysis using CDAWeb (cdasws), pandas, and matplotlib.
 
 What this script does
 ---------------------
 1. Downloads OMNI 1-minute data for a chosen time range from CDAWeb.
-2. Converts the returned data to a pandas DataFrame.
-3. Plots key storm parameters in aligned panels.
-4. Marks the minimum SYM-H time if available.
-5. Saves the figure to disk.
+2. Uses chunked requests plus retry logic to reduce RemoteDisconnected/network failures.
+3. Converts the returned data to a pandas DataFrame.
+4. Plots key storm parameters in aligned panels.
+5. Marks the minimum SYM-H time if available.
+6. Saves the figure to disk.
 
 Install requirements
 --------------------
-python -m pip install cdasws pandas matplotlib numpy
+python -m pip install cdasws pandas matplotlib numpy requests urllib3
 
 Notes
 -----
 - Dataset used here: OMNI_HRO2_1MIN
 - Variable availability can vary slightly; the script handles missing variables gracefully.
 - Times are treated as UTC.
+- If CDAWeb is temporarily unstable, just rerun later; this script already retries automatically.
 """
 
 from __future__ import annotations
@@ -28,27 +30,39 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
 from pathlib import Path
+from datetime import timedelta
+import time
 
 
 # =========================
 # User settings
 # =========================
-START = '2013-11-05T00:00:00Z'
-END = '2013-11-06T00:00:00Z'
+START = '2003-10-28T12:00:00Z'
+END = '2003-10-31T12:00:00Z'
 DATASET = 'OMNI_HRO2_1MIN'
 OUTPUT_FIG = 'omni_event_plot.png'
 
 # Variables commonly useful for storm analysis
 REQUESTED_VARS = [
+    'BX_GSM',
+    'BY_GSM',
     'BZ_GSM',
+    'B_total',
     'flow_speed',
-    'Vx',
-    'Vy',
-    'Vz',
+    'T',
+    'AE_INDEX'
+ #   'Vx',
+ #   'Vy',
+ #   'Vz',
     'proton_density',
     'Pressure',
     'SYM_H',
 ]
+
+# Networking robustness settings
+MAX_RETRIES = 4
+RETRY_WAIT_SECONDS = 4
+CHUNK_HOURS = 6  # Split the full interval into chunks of this many hours for each CDAWeb request
 
 
 # =========================
@@ -70,14 +84,12 @@ def _make_series_if_possible(data_dict: dict, name: str, index: pd.DatetimeIndex
 
     values = np.asarray(data_dict[name])
 
-    # Expect 1D time series for this workflow.
     if values.ndim != 1:
         return None
 
-    # Replace obvious fill values with NaN where possible.
-    # OMNI fill values are often large/special numbers, but these can vary.
     values = pd.to_numeric(pd.Series(values), errors='coerce').to_numpy()
-    values = np.where(np.abs(values) > 1e4, np.nan, values)
+    
+    values = np.where(np.abs(values) > 9999, np.nan, values)
 
     if len(values) != len(index):
         return None
@@ -85,23 +97,21 @@ def _make_series_if_possible(data_dict: dict, name: str, index: pd.DatetimeIndex
     return pd.Series(values, index=index, name=name)
 
 
-def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str]) -> pd.DataFrame:
-    """Fetch OMNI data from CDAWeb and return a DataFrame indexed by UTC time."""
-    cdas = CdasWs()
-
-    result = cdas.get_data(dataset, variables, start, end)
-
-    # cdasws typically returns a tuple-like structure: (status, data)
-    # but this can vary slightly by version, so handle a few cases.
+def _extract_data_dict(result):
+    """Handle a few likely cdasws return structures."""
     if isinstance(result, tuple) and len(result) >= 2:
-        data = result[1]
-    else:
-        data = result
+        return result[1]
+    return result
+
+
+def _fetch_single_chunk(cdas: CdasWs, start: str, end: str, dataset: str, variables: list[str]) -> pd.DataFrame:
+    """Fetch one chunk from CDAWeb and return a DataFrame indexed by UTC time."""
+    result = cdas.get_data(dataset, variables, start, end)
+    data = _extract_data_dict(result)
 
     if not isinstance(data, dict):
         raise RuntimeError(f'Unexpected data structure returned from CDAWeb: {type(data)}')
 
-    # Find the time variable. CDAWeb commonly uses Epoch.
     time_key = None
     for candidate in ['Epoch', 'EPOCH', 'epoch', 'Time']:
         if candidate in data:
@@ -126,17 +136,71 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
             found.append(var)
 
     if not series_list:
-        raise RuntimeError('No requested variables could be converted into 1D time series.')
+        raise RuntimeError('No requested variables could be converted into 1D time series in this chunk.')
 
-    df = pd.concat(series_list, axis=1)
-    df = df.sort_index()
+    df = pd.concat(series_list, axis=1).sort_index()
 
-    print('\nVariables successfully loaded:')
-    print(found)
-
+    print(f'Loaded chunk {start} -> {end}')
+    print('  Found variables:', found)
     if missing:
-        print('\nVariables missing or skipped:')
-        print(missing)
+        print('  Missing/skipped:', missing)
+
+    return df
+
+
+def _fetch_single_chunk_with_retries(cdas: CdasWs, start: str, end: str, dataset: str, variables: list[str]) -> pd.DataFrame:
+    """Fetch one chunk with retry logic for transient network/server failures."""
+    last_error = None
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            print(f'Attempt {attempt}/{MAX_RETRIES} for chunk {start} -> {end}')
+            return _fetch_single_chunk(cdas, start, end, dataset, variables)
+        except Exception as exc:
+            last_error = exc
+            print(f'  Chunk request failed: {type(exc).__name__}: {exc}')
+            if attempt < MAX_RETRIES:
+                print(f'  Waiting {RETRY_WAIT_SECONDS} s before retrying...')
+                time.sleep(RETRY_WAIT_SECONDS)
+
+    raise RuntimeError(f'Failed to fetch chunk after {MAX_RETRIES} attempts: {start} -> {end}') from last_error
+
+
+def _build_chunk_ranges(start: str, end: str, chunk_hours: int) -> list[tuple[str, str]]:
+    """Split the full interval into smaller UTC chunks."""
+    start_ts = pd.Timestamp(start, tz='UTC')
+    end_ts = pd.Timestamp(end, tz='UTC')
+
+    ranges = []
+    current = start_ts
+    delta = pd.Timedelta(hours=chunk_hours)
+
+    while current < end_ts:
+        next_time = min(current + delta, end_ts)
+        ranges.append((current.isoformat().replace('+00:00', 'Z'), next_time.isoformat().replace('+00:00', 'Z')))
+        current = next_time
+
+    return ranges
+
+
+def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str], chunk_hours: int = CHUNK_HOURS) -> pd.DataFrame:
+    """Fetch OMNI data from CDAWeb in chunks and return a combined DataFrame indexed by UTC time."""
+    cdas = CdasWs()
+    ranges = _build_chunk_ranges(start, end, chunk_hours)
+
+    print(f'Fetching data in {len(ranges)} chunk(s) of up to {chunk_hours} hour(s) each...')
+
+    dfs = []
+    for chunk_start, chunk_end in ranges:
+        df_chunk = _fetch_single_chunk_with_retries(cdas, chunk_start, chunk_end, dataset, variables)
+        dfs.append(df_chunk)
+
+    if not dfs:
+        raise RuntimeError('No data chunks were downloaded successfully.')
+
+    df = pd.concat(dfs, axis=0)
+    df = df[~df.index.duplicated(keep='first')]
+    df = df.sort_index()
 
     return df
 
@@ -145,10 +209,15 @@ def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
     """Create and save a multi-panel OMNI event plot."""
     panel_specs = [
         ('BZ_GSM', 'Bz GSM [nT]', 'tab:blue'),
+        ('B_total', 'Total B [nT]', 'tab:cyan'),
+        ('BX_GSM', 'Bx GSM [nT]', 'tab:orange'),
+        ('BY_GSM', 'By GSM [nT]', 'tab:green'),
         ('flow_speed', 'Flow speed [km/s]', 'tab:red'),
-        ('Vx', 'Vx [km/s]', 'tab:orange'),
-        ('Vy', 'Vy [km/s]', 'tab:purple'),
-        ('Vz', 'Vz [km/s]', 'tab:brown'),
+        ('T', 'Temperature [K]', 'tab:purple'),
+        ('AE_INDEX', 'AE index [nT]', 'tab:brown'),
+        # ('Vx', 'Vx [km/s]', 'tab:orange'),
+        # ('Vy', 'Vy [km/s]', 'tab:purple'),
+        # ('Vz', 'Vz [km/s]', 'tab:brown'),
         ('proton_density', 'Proton density [cm$^{-3}$]', 'tab:green'),
         ('Pressure', 'Dynamic pressure [nPa]', 'tab:pink'),
         ('SYM_H', 'SYM-H [nT]', 'black'),
@@ -197,6 +266,7 @@ def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
 # =========================
 def main() -> None:
     print(f'Fetching {DATASET} data from {START} to {END}...')
+    print(f'Requested variables: {REQUESTED_VARS}')
     df = fetch_omni_dataframe(START, END, DATASET, REQUESTED_VARS)
 
     print('\nData preview:')
