@@ -39,30 +39,23 @@ import time
 # =========================
 START = '2003-10-28T12:00:00Z'
 END = '2003-10-31T12:00:00Z'
-DATASET = 'OMNI_HRO2_1MIN'
+DATASET = 'OMNI2_H0_MRG1HR'
 OUTPUT_FIG = 'omni_event_plot.png'
 
 # Variables commonly useful for storm analysis
 REQUESTED_VARS = [
-    'BX_GSM',
-    'BY_GSM',
-    'BZ_GSM',
-    'B_total',
-    'flow_speed',
-    'T',
-    'AE_INDEX'
+    'BZ_GSM1800',
+  #  'flow_speed',
  #   'Vx',
  #   'Vy',
  #   'Vz',
-    'proton_density',
-    'Pressure',
-    'SYM_H',
+  #  'SYM_H',
 ]
 
 # Networking robustness settings
 MAX_RETRIES = 4
 RETRY_WAIT_SECONDS = 4
-CHUNK_HOURS = 6  # Split the full interval into chunks of this many hours for each CDAWeb request
+CHUNK_HOURS = 24  # Split the full interval into chunks of this many hours for each CDAWeb request
 
 
 # =========================
@@ -100,14 +93,17 @@ def _make_series_if_possible(data_dict: dict, name: str, index: pd.DatetimeIndex
 def _extract_data_dict(result):
     """Handle a few likely cdasws return structures."""
     if isinstance(result, tuple) and len(result) >= 2:
-        return result[1]
-    return result
+        return result[1] 
 
 
 def _fetch_single_chunk(cdas: CdasWs, start: str, end: str, dataset: str, variables: list[str]) -> pd.DataFrame:
     """Fetch one chunk from CDAWeb and return a DataFrame indexed by UTC time."""
     result = cdas.get_data(dataset, variables, start, end)
+    print("Raw result type:", type(result), "with", len(result), "items")
+    print("Raw result:", result)
     data = _extract_data_dict(result)
+    print("Extracted data type:", type(data))
+    print(data.keys())
 
     if not isinstance(data, dict):
         raise RuntimeError(f'Unexpected data structure returned from CDAWeb: {type(data)}')
@@ -201,6 +197,8 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
     df = pd.concat(dfs, axis=0)
     df = df[~df.index.duplicated(keep='first')]
     df = df.sort_index()
+    df = df.dropna(how='all')
+    print(df.columns)
 
     return df
 
@@ -208,19 +206,9 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
 def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
     """Create and save a multi-panel OMNI event plot."""
     panel_specs = [
-        ('BZ_GSM', 'Bz GSM [nT]', 'tab:blue'),
-        ('B_total', 'Total B [nT]', 'tab:cyan'),
-        ('BX_GSM', 'Bx GSM [nT]', 'tab:orange'),
-        ('BY_GSM', 'By GSM [nT]', 'tab:green'),
-        ('flow_speed', 'Flow speed [km/s]', 'tab:red'),
-        ('T', 'Temperature [K]', 'tab:purple'),
-        ('AE_INDEX', 'AE index [nT]', 'tab:brown'),
-        # ('Vx', 'Vx [km/s]', 'tab:orange'),
-        # ('Vy', 'Vy [km/s]', 'tab:purple'),
-        # ('Vz', 'Vz [km/s]', 'tab:brown'),
-        ('proton_density', 'Proton density [cm$^{-3}$]', 'tab:green'),
-        ('Pressure', 'Dynamic pressure [nPa]', 'tab:pink'),
-        ('SYM_H', 'SYM-H [nT]', 'black'),
+        ('BZ_GSM1800', 'Bz GSM [nT]', 'tab:blue'),
+    #    ('flow_speed', 'Flow speed [km/s]', 'tab:red'),
+    #    ('SYM_H', 'SYM-H [nT]', 'black'),
     ]
 
     available_panels = [(col, label, color) for col, label, color in panel_specs if col in df.columns]
@@ -233,11 +221,11 @@ def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
     if len(available_panels) == 1:
         axes = [axes]
 
-    symh_min_time = None
-    if 'SYM_H' in df.columns and df['SYM_H'].notna().any():
-        symh_min_time = df['SYM_H'].idxmin()
-        symh_min_value = df.loc[symh_min_time, 'SYM_H']
-        print(f'\nSYM-H minimum: {symh_min_value:.1f} nT at {symh_min_time}')
+    #symh_min_time = None
+    #if 'SYM_H' in df.columns and df['SYM_H'].notna().any():
+    #    symh_min_time = df['SYM_H'].idxmin()
+    #    symh_min_value = df.loc[symh_min_time, 'SYM_H']
+    #    print(f'\nSYM-H minimum: {symh_min_value:.1f} nT at {symh_min_time}')
 
     for ax, (col, ylabel, color) in zip(axes, available_panels):
         ax.plot(df.index, df[col], color=color, linewidth=1.0)
@@ -247,8 +235,8 @@ def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
         if col == 'BZ_GSM':
             ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
 
-        if symh_min_time is not None:
-            ax.axvline(symh_min_time, color='gray', linestyle='--', linewidth=0.8)
+    #    if symh_min_time is not None:
+    #        ax.axvline(symh_min_time, color='gray', linestyle='--', linewidth=0.8)
 
     axes[0].set_title(f'OMNI event overview: {df.index.min()} to {df.index.max()}')
     axes[-1].set_xlabel('Time [UTC]')
