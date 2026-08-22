@@ -47,7 +47,11 @@ REQUESTED_VARS = [
     'BX_GSE1800',
     'BY_GSE1800',
     'BZ_GSE1800',
-    'ABS_B1800'
+    'ABS_B1800',
+    'KP1800',
+    'AP_INDEX1800',
+    'DST1800',
+    'AE1800'
   #  'flow_speed',
  #   'Vx',
  #   'Vy',
@@ -209,10 +213,11 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
 def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
     """Create and save a multi-panel OMNI event plot."""
     panel_specs = [
-        ('BX_GSE1800', 'Bx GSE [nT]', 'tab:orange'),
-        ('BY_GSE1800', 'By GSE [nT]', 'tab:green'),
-        ('BZ_GSE1800', 'Bz GSE [nT]', 'tab:blue'),
-        ('ABS_B1800', '|B| [nT]', 'tab:purple'),
+        ('KP1800', 'Kp index', 'tab:orange'),
+        ('AP_INDEX1800', 'Ap index', 'tab:green'),
+        ('DST1800', 'Dst [nT]', 'tab:blue'),
+        ('AE1800', 'Ae [nT]', 'tab:red'),
+                                           
         
     #    ('flow_speed', 'Flow speed [km/s]', 'tab:red'),
     #    ('SYM_H', 'SYM-H [nT]', 'black'),
@@ -284,6 +289,32 @@ def plot_B_field(df: pd.DataFrame, output_path: str) -> None:
     print(f'\nB field figure saved to: {Path(output_path).resolve()}')
     print(df.index)
 
+def plot_disturbance(df: pd.DataFrame, output_path: str) -> None:
+    """Create a single plot for geomagnetic disturbance indices"""
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+
+    ax1.set_xlabel('Date [UTC]')
+    ax1.set_ylabel('Index Value')
+    ax1.plot(df.index, df[KP1800], label = 'Kp index', color = 'black')
+    ax1.tick_params(axis = 'y', labelcolor = 'black')
+
+    ax2 = ax1.twinx()  # Plot Ap index on the same x-axis but different y-axis, Kp is the logarithmic version of Ap index
+    ax2.set_ylabel('ap [nT]', color = 'red')
+
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
+
+
+    plt.title(f'Geomagnetic Disturbance Indices: {df.index.min()} to {df.index.max()}')
+    plt.xlabel('Date [UTC]')
+    plt.ylabel('Index Value')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    print(f'\nDisturbance indices figure saved to: {Path(output_path).resolve()}')
 # =========================
 # Main script
 # =========================
@@ -300,7 +331,8 @@ def main() -> None:
 
     plot_omni_event(df, OUTPUT_FIG)
     plot_B_field(df, 'omni_B_field_plot.png')
-
+    plot_disturbance(df, 'omni_disturbance_plot.png')
+    
 
 if __name__ == '__main__':
     main()
