@@ -289,32 +289,59 @@ def plot_B_field(df: pd.DataFrame, output_path: str) -> None:
     print(f'\nB field figure saved to: {Path(output_path).resolve()}')
     print(df.index)
 
-def plot_disturbance(df: pd.DataFrame, output_path: str) -> None:
+def plot_disturbance(df: pd.DataFrame, output_path: str) -> None: #Plots Kp and ap indices
     """Create a single plot for geomagnetic disturbance indices"""
     fig, ax1 = plt.subplots(figsize=(10, 5))
 
     ax1.set_xlabel('Date [UTC]')
-    ax1.set_ylabel('Index Value')
-    ax1.plot(df.index, df[KP1800], label = 'Kp index', color = 'black')
+    ax1.set_ylabel('Kp Index')
+    ax1.plot(df.index, df['KP1800']/10, label = 'Kp index', color = 'black')
     ax1.tick_params(axis = 'y', labelcolor = 'black')
+    #print(df['KP1800'])
 
     ax2 = ax1.twinx()  # Plot Ap index on the same x-axis but different y-axis, Kp is the logarithmic version of Ap index
+    ax2.plot(df.index, df['AP_INDEX1800'], label = 'Ap index', color = 'red')
     ax2.set_ylabel('ap [nT]', color = 'red')
+    ax2.tick_params(axis = 'y', labelcolor = 'red')
 
     ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
 
 
     plt.title(f'Geomagnetic Disturbance Indices: {df.index.min()} to {df.index.max()}')
-    plt.xlabel('Date [UTC]')
-    plt.ylabel('Index Value')
-    plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(output_path, dpi=200, bbox_inches='tight')
     plt.show()
 
     print(f'\nDisturbance indices figure saved to: {Path(output_path).resolve()}')
+
+def plot_ring_currents(df:dataframe, output_path:str) -> None: #plots Dst and AE indices    
+    """Create a single plot for ring current indices"""
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    
+    ax1.set_xlabel('Date [UTC]')
+    ax1.set_ylabel('Dst [nT]')
+    ax1.plot(df.index, df['DST1800'], label = 'Dst [nT]', color = 'black')
+    ax1.tick_params(axis = 'y', labelcolor = 'black')
+        
+    
+    ax2 = ax1.twinx()  # Plot Ap index on the same x-axis but different y-axis, Kp is the logarithmic version of Ap index
+    ax2.plot(df.index, df['AE1800'], label = 'AE [nT]', color = 'red')
+    ax2.set_ylabel('AE [nT]', color = 'red')
+    ax2.tick_params(axis = 'y', labelcolor = 'red')
+    
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
+    
+    
+    plt.title(f'Ring Current Indices: {df.index.min()} to {df.index.max()}')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=200, bbox_inches='tight')
+    plt.show()
+    
+    print(f'\nRing current indices figure saved to: {Path(output_path).resolve()}')
 # =========================
 # Main script
 # =========================
@@ -332,7 +359,7 @@ def main() -> None:
     plot_omni_event(df, OUTPUT_FIG)
     plot_B_field(df, 'omni_B_field_plot.png')
     plot_disturbance(df, 'omni_disturbance_plot.png')
-    
+    plot_ring_currents(df, 'omni_ring_currents_plot.png')
 
 if __name__ == '__main__':
     main()
