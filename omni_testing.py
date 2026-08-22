@@ -37,14 +37,17 @@ import time
 # =========================
 # User settings
 # =========================
-START = '2003-10-28T12:00:00Z'
-END = '2003-10-31T12:00:00Z'
+START = '2003-10-22T00:00:00Z'
+END = '2003-11-03T00:00:00Z'
 DATASET = 'OMNI2_H0_MRG1HR'
 OUTPUT_FIG = 'omni_event_plot.png'
 
 # Variables commonly useful for storm analysis
 REQUESTED_VARS = [
-    'BZ_GSM1800',
+    'BX_GSE1800',
+    'BY_GSE1800',
+    'BZ_GSE1800',
+    'ABS_B1800'
   #  'flow_speed',
  #   'Vx',
  #   'Vy',
@@ -198,7 +201,7 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
     df = df[~df.index.duplicated(keep='first')]
     df = df.sort_index()
     df = df.dropna(how='all')
-    print(df.columns)
+   # print(df.columns)
 
     return df
 
@@ -206,12 +209,17 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
 def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
     """Create and save a multi-panel OMNI event plot."""
     panel_specs = [
-        ('BZ_GSM1800', 'Bz GSM [nT]', 'tab:blue'),
+        ('BX_GSE1800', 'Bx GSE [nT]', 'tab:orange'),
+        ('BY_GSE1800', 'By GSE [nT]', 'tab:green'),
+        ('BZ_GSE1800', 'Bz GSE [nT]', 'tab:blue'),
+        ('ABS_B1800', '|B| [nT]', 'tab:purple'),
+        
     #    ('flow_speed', 'Flow speed [km/s]', 'tab:red'),
     #    ('SYM_H', 'SYM-H [nT]', 'black'),
     ]
 
     available_panels = [(col, label, color) for col, label, color in panel_specs if col in df.columns]
+    print(available_panels, type(available_panels))
 
     if not available_panels:
         raise RuntimeError('No plottable columns are available in the DataFrame.')
@@ -232,8 +240,9 @@ def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
         ax.set_ylabel(ylabel)
         ax.grid(True, alpha=0.3)
 
-        if col == 'BZ_GSM':
-            ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+        if col == 'BZ_GSE1800':
+            ax.axhline(0, color='gray', linestyle='--', linewidth=0.8) # horizontal line for 0, B_z <0 gives 
+    
 
     #    if symh_min_time is not None:
     #        ax.axvline(symh_min_time, color='gray', linestyle='--', linewidth=0.8)
@@ -248,6 +257,32 @@ def plot_omni_event(df: pd.DataFrame, output_path: str) -> None:
 
     print(f'\nFigure saved to: {Path(output_path).resolve()}')
 
+def plot_B_field(df: pd.DataFrame, output_path: str) -> None:
+    """Create a single plot for B field variations"""
+    plt.figure(figsize=(10, 5))
+    plt.plot(df.index, df['BX_GSE1800'], label='Bx GSE', color='purple')
+    plt.plot(df.index, df['BY_GSE1800'], label='By GSE', color='red')
+    plt.plot(df.index, df['BZ_GSE1800'], label='Bz GSE', color='blue')
+    plt.plot(df.index, df['ABS_B1800'], label='|B|', color='black')
+    plt.axhline(0, color='gray', linestyle='--', alpha = 0.5, linewidth=0.8) #useful for checking whether B_z environment favours reconnection
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
+
+    ax.set_xlabel('Date [UTC]')
+
+
+    plt.title(f'B Field Variations: {df.index.min()} to {df.index.max()}')
+    #plt.xlabel('Time [UTC]')
+    plt.ylabel('Magnetic Field [nT]')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=200, bbox_inches='tight')
+    plt.show()
+
+    print(f'\nB field figure saved to: {Path(output_path).resolve()}')
+    print(df.index)
 
 # =========================
 # Main script
@@ -264,6 +299,7 @@ def main() -> None:
     print(df.describe())
 
     plot_omni_event(df, OUTPUT_FIG)
+    plot_B_field(df, 'omni_B_field_plot.png')
 
 
 if __name__ == '__main__':
