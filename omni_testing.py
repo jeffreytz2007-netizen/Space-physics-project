@@ -23,6 +23,7 @@ Notes
 """
 
 from __future__ import annotations
+from operator import index
 
 from cdasws import CdasWs
 import pandas as pd
@@ -56,7 +57,7 @@ REQUESTED_VARS = [
  #   'Vx',
  #   'Vy',
  #   'Vz',
-  #  'SYM_H',
+   # 'SYM_H',
 ]
 
 # Networking robustness settings
@@ -318,18 +319,47 @@ def plot_disturbance(df: pd.DataFrame, output_path: str) -> None: #Plots Kp and 
 
 def plot_ring_currents(df:dataframe, output_path:str) -> None: #plots Dst and AE indices    
     """Create a single plot for ring current indices"""
+
+    ddst = df['DST1800'].diff()
+    cond_threshold = df['DST1800'] <= -50 #dst index must be below -50 nT to be classified as a storm
+
+    cond_decreasing = (
+        (ddst < 0) &
+        (ddst.shift(-1) < 0 ) &
+        (ddst.shift(-2) < 0)
+
+    ) #must have three consecutive decreasing values to be classified as a storm
+
+    storm_mask = df.shift(2).index[cond_threshold & cond_decreasing] #mask for storm period, shifted because otherwise it'll start on the third hour
+    print(storm_mask)
+    print(len(storm_mask))
+    if len(storm_mask) > 0 :
+        storm_start = storm_mask[0]
+        storm_end = storm_mask[-1]
+        print(f'Storm period detected from {storm_start} to {storm_end}')
+
+    elif len(storm_mask) == 0:
+        storm_start = None
+        print('No storm period detected based on the Dst threshold and decreasing condition')
+
+    
+
     fig, ax1 = plt.subplots(figsize=(10, 5))
     
     ax1.set_xlabel('Date [UTC]')
     ax1.set_ylabel('Dst [nT]')
     ax1.plot(df.index, df['DST1800'], label = 'Dst [nT]', color = 'black')
     ax1.tick_params(axis = 'y', labelcolor = 'black')
-        
+    #next three lines mark the start and end of the storm period based on the Dst threshold, Dst<= 50nT
+    ax1.axvline(storm_start, color='black', linestyle='--', linewidth=0.8)
+    ax1.axvline(storm_end, color='black', linestyle='--', linewidth=0.8)
+    ax1.axvspan(storm_start, storm_end, color='gray', alpha=0.3, zorder=0)        
     
     ax2 = ax1.twinx()  # Plot Ap index on the same x-axis but different y-axis, Kp is the logarithmic version of Ap index
     ax2.plot(df.index, df['AE1800'], label = 'AE [nT]', color = 'red')
     ax2.set_ylabel('AE [nT]', color = 'red')
     ax2.tick_params(axis = 'y', labelcolor = 'red')
+    
     
     ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
