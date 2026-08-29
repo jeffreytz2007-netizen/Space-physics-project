@@ -86,8 +86,8 @@ fig, ax = HA.plot(model, t_interest)
 #from sunpy.coordinates import sun
 #from astropy.time import Time
 
-t = Time('2024-05-09T00:00:00')
-print(sun.carrington_rotation_number(t))
+#t = Time('2024-05-09T00:00:00')
+#print(sun.carrington_rotation_number(t))
 
 cr = 2254
 v_mas = Hin.get_MAS_long_profile(cr, 0.0*u.deg)
