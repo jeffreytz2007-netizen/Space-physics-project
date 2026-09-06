@@ -187,3 +187,16 @@ def plot_symh(df: pd.DataFrame, output_file: str):
     #plt.savefig(output_file)
     plt.show()
     #print(f'Plot saved to {output_file}')
+
+def main():
+    """Main function to fetch OMNI data and plot SYM-H index."""
+    df = fetch_omni_dataframe(START, END, DATASET, REQUESTED_VARS)
+    print(f'Data fetched with {len(df)} rows.')
+    plot_symh(df, OUTPUT_FIG)
+
+if __name__ == '__main__':
+    print(f'Fetching {DATASET} from {START} to {END}')
+    df = fetch_omni_dataframe(START, END, DATASET, REQUESTED_VARS)
+    print(df.head())
+    print(df.describe())
+    plot_symh(df, OUTPUT_FIG)

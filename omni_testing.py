@@ -317,7 +317,7 @@ def plot_disturbance(df: pd.DataFrame, output_path: str) -> None: #Plots Kp and 
 
     print(f'\nDisturbance indices figure saved to: {Path(output_path).resolve()}')
 
-def plot_ring_currents(df:dataframe, output_path:str) -> None: #plots Dst and AE indices    
+def plot_ring_currents(df:pd.DataFrame, output_path:str) -> None: #plots Dst and AE indices    
     """Create a single plot for ring current indices"""
 
     ddst = df['DST1800'].diff()
