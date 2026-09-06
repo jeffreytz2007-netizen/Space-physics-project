@@ -156,3 +156,37 @@ model.solve([cme], tag='cone_cme_test')
 HA.animate(model, tag='cone_cme_test') # This takes about two minutes.
 
 # %%
+'''Example 7: Tracking a CME in HUXt'''
+# Set up and run previous example of idealised solar wind with single CME
+v_boundary = np.ones(128) * 400 * (u.km/u.s)
+v_boundary[30:50] = 600 * (u.km/u.s)
+v_boundary[95:125] = 500 * (u.km/u.s)
+
+# Add a CME
+cme = H.ConeCME(t_launch=1*u.day, longitude=360*u.deg, latitude=0*u.deg, width=30*u.deg, v=1000*(u.km/u.s), thickness=5*u.solRad)
+
+# Setup HUXt to do a 5-day simulation, with model output every 4 timesteps (roughly half and hour time step)
+model = H.HUXt(v_boundary=v_boundary, latitude=0*u.deg, simtime=5*u.day, dt_scale=4)
+model.solve([cme], tag='cone_cme_test')
+
+# Extract the CME position and convert to cartesian for plotting
+cme = model.cmes[0]
+id_t = np.argmin(np.abs(model.time_out - 1.5*u.d))
+r = cme.coords[id_t]['r'].to(u.solRad)
+lon = cme.coords[id_t]['lon']
+x = r * np.cos(lon)
+y = r * np.sin(lon)
+
+print(x)
+
+# There is also a "front_id" field to separate the nose and rear.
+id_front = cme.coords[id_t]['front_id'] == 1.0
+id_back = cme.coords[id_t]['front_id'] == 0.0
+
+# Plot it
+fig, ax = plt.subplots() # Compare this with the boundary in the frame above.
+ax.plot(x[id_front] , y[id_front] , 'r.', label='Front')
+ax.plot(x[id_back] , y[id_back] , 'kx', label='Rear')
+ax.set_xlabel('X ($R_{sun}$)')
+ax.set_ylabel('Y ($R_{sun}$)')
+ax.legend()
