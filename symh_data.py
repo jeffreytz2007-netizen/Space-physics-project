@@ -174,11 +174,36 @@ def fetch_omni_dataframe(start: str, end: str, dataset: str, variables: list[str
 def plot_symh(df: pd.DataFrame, output_file: str):
     """Plot the SYM-H index from the DataFrame and save to a file."""
     if 'SYM_H' not in df.columns:
-        raise KeyError('SYM_H variable not found in DataFrame.')
+        raise KeyError('SYM_H variable not found in DataFrame.')\
+
+    dsymh = df['SYM_H'].diff()
+    cond_threshold = df['SYM_H'] < -50
+    cond_decreasing = (
+        (dsymh < -5) & (dsymh.shift(-1) < -5) & (dsymh.shift(-2) < -5)
+    )
+
+    cond_date = (df.index >= pd.Timestamp('2003-10-28T00:00:00Z'))
+
+    storm_mask = df.shift(2).index[cond_threshold & cond_decreasing & cond_date]
+    print(storm_mask)
+    print(len(storm_mask))
+    if len(storm_mask) > 0:
+        storm_start = storm_mask[0]
+        storm_end = storm_mask[-1]
+        print(f'Storm period detected from {storm_start} to {storm_end}')
+    else:
+        storm_start = None
+        storm_end = None
+        print('No storm period detected.')
 
     plt.figure(figsize=(12, 6))
     plt.plot(df.index, df['SYM_H'], label='SYM-H', color='blue')
     plt.title('SYM-H Index from OMNI Data')
+    plt.axvline(storm_start, color='black', linestyle='--', label='Storm Start')
+    plt.axvline(storm_end, color='black', linestyle='--', label='Storm End')
+    plt.axvspan(storm_start, storm_end, color='gray', alpha=0.3, label='Storm Period')
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+    plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval = 1))
     plt.xlabel('Time (UTC)')
     plt.ylabel('SYM-H (nT)')
     plt.grid(True)
