@@ -273,13 +273,25 @@ def plot_B_field(df: pd.DataFrame, output_path: str) -> None:
     plt.axhline(0, color='gray', linestyle='--', alpha = 0.5, linewidth=0.8) #useful for checking whether B_z environment favours reconnection
     ax = plt.gca()
 
-    for i in range(len(df['BZ_GSE1800'])):
-        if df['BZ_GSE1800'][i] < 0 and df['BZ_GSE1800'][i-1] > 0:
-            ax.axvline(df.index[i], color='black', linestyle='--', alpha = 0.5, linewidth=0.8)
-        elif df['BZ_GSE1800'][i] > 0 and df['BZ_GSE1800'][i-1] < 0:
-            ax.axvline(df.index[i], color='black', linestyle='--', alpha = 0.5, linewidth=0.8)
-        else:
-            pass
+    bz = pd.to_numeric(df["BZ_GSE1800"], errors="coerce")
+
+    # Start at 1 because i - 1 is invalid for the first row.
+    for i in range(1, len(bz)):
+        current = bz.iloc[i]
+        previous = bz.iloc[i - 1]
+
+        if pd.notna(current) and pd.notna(previous):
+            crossed_zero = (current < 0 <= previous) or (current > 0 >= previous)
+
+            if crossed_zero:
+                ax.axvline(
+                    df.index[i],
+                    color="black",
+                    linestyle="--",
+                    alpha=0.5,
+                    linewidth=0.8,
+                )
+
 #bounds the regions with southward B field
     
     ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))

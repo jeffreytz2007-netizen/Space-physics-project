@@ -190,3 +190,21 @@ ax.plot(x[id_back] , y[id_back] , 'kx', label='Rear')
 ax.set_xlabel('X ($R_{sun}$)')
 ax.set_ylabel('Y ($R_{sun}$)')
 ax.legend()
+
+# Look at the same CME at the same time as before. 
+cme = model.cmes[0]
+id_t = np.argmin(np.abs(model.time_out - 1.5*u.d))
+v = cme.coords[id_t]['v']
+lon = cme.coords[id_t]['lon']
+
+# There is also a "front_id" field to separate the nose and rear.
+id_front = cme.coords[id_t]['front_id'] == 1.0
+id_back = cme.coords[id_t]['front_id'] == 0.0
+
+# Plot it out
+fig, ax = plt.subplots()
+ax.plot(lon[id_front] , v[id_front] , 'r.', label='Front')
+ax.plot(lon[id_back] , v[id_back] , 'kx', label='Rear')
+ax.set_xlabel('Longitude (rads)')
+ax.set_ylabel('V ($km/s$)')
+ax.legend()
